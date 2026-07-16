@@ -1,0 +1,67 @@
+# ==============================
+# Python Core
+# ==============================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+env.bak/
+venv.bak/
+*.zip
+*.txt
+
+# ==============================
+# Django / DRF
+# ==============================
+*.log
+local_settings.py
+media/
+static/
+
+# ==============================
+# Databases & Dumps (Based on your list)
+# ==============================
+# Ignores SQLite databases and SQL dumps
+*.sqlite3
+local_cache.sqlite3
+*.sql
+sqlite.sql
+whatsappcloud.sql
+
+# ==============================
+# Celery (Based on your list)
+# ==============================
+# Ignores Celery beat schedule files and temporary SQLite WAL/SHM files
+celerybeat-schedule*
+celerybeat-schedule
+celerybeat-schedule.db
+celerybeat-schedule-shm
+celerybeat-schedule-wal
+celerybeat.pid
+celeryconfig.py
+
+# ==============================
+# Project Specific Logs (Based on your list)
+# ==============================
+application.log
+app.log
+error.log
+logs/
+
+# ==============================
+# OS / Environment
+# ==============================
+
+.DS_Store
+Thumbs.db
+
+bin
+include
+lib
+lib64
+pyvenv.cfg
+test.*

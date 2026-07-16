@@ -1,0 +1,125 @@
+services:
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    env_file: ../WAPI/.env
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: whatsappcloud
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
+      interval: 5s
+      retries: 10
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    restart: unless-stopped
+    ports:
+      - "15672:15672"   
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 5s
+      retries: 10
+  web:
+    build:
+      context: ../WAPI
+      dockerfile: ../DockerFiles/Docker.dockerfile
+    restart: unless-stopped
+    command: gunicorn WAPI.wsgi:application -c gunicorn.conf.py --reload
+    env_file: ../WAPI/.env
+    volumes:
+      - ../WAPI:/app
+      - media_data:/app/media
+      - static_data:/app/static_cdn
+      - ../WAPI/logs:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/users/health_check"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+  celery_all:
+    build:
+      context: ../WAPI
+      dockerfile: ../DockerFiles/Docker.dockerfile
+    restart: unless-stopped
+    command: watchmedo auto-restart --directory=./ --pattern="*.py" --recursive -- celery -A WAPI worker -Q webhook_processing,media_uploads,scheduled_messages,default --concurrency=20 -n combined_worker@%h --logfile=./logs/celery_worker.log
+    env_file: ../WAPI/.env
+    volumes:
+      - ../WAPI:/app
+      - media_data:/app/media
+      - ../WAPI/logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+  celery_beat:
+    build:
+      context: ../WAPI
+      dockerfile: ../DockerFiles/Docker.dockerfile
+    restart: unless-stopped
+    command: celery -A WAPI beat --scheduler django_celery_beat.schedulers:DatabaseScheduler --logfile=./logs/celery_beat.log
+    env_file: ../WAPI/.env
+    volumes:                  
+      - ../WAPI:/app
+      - ../WAPI/logs:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - static_data:/app/static_cdn:ro
+      - media_data:/app/media:ro
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      web:
+        condition: service_healthy
+  minioWapi:
+    image: minio/minio:latest
+    restart: unless-stopped
+    container_name: minioWapi
+    env_file: ../WAPI/.env
+    entrypoint: ["/bin/sh", "minio-entrypoint.sh"]
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_SERVER_URL: ${MINIO_URL}
+      MINIO_API_CORS_ALLOW_ORIGIN: "*"
+      MINIO_BUCKET: ${MINIO_BUCKET}
+    volumes:
+      - minio_data:/data
+      - ./minio-entrypoint.sh:/minio-entrypoint.sh:ro
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  mysql_data:
+  rabbitmq_data:
+  media_data:
+  static_data:
+  minio_data:
