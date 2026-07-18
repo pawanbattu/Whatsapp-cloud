@@ -3,9 +3,6 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
-# from .models import Post, Comment, User
-# from .serializers import PostSerializer, CommentSerializer, UserSerializer
-from WhatsPanel.models.sqlite_models import *
 from core.responses import response
 import core.logger as logger
 import traceback
